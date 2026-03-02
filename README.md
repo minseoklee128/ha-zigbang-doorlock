@@ -18,7 +18,7 @@
 ### **📂 디렉토리 구조**
 
 ```text
-custom_components/zigbang_doorlock/
+custom_components/zigbang-doorlock/
 ├── __init__.py      # 데이터 업데이트 코디네이터 및 통합 구성요소 초기화
 ├── api.py           # 직방 클라우드 서버와의 REST API 통신 로직
 ├── const.py         # 도메인, 기본 설정값 등 상수 정의
@@ -36,9 +36,17 @@ custom_components/zigbang_doorlock/
 2. `custom_components/zigbang_doorlock/` 폴더를 생성하고 Repo 내 `custom_components/zigbang-doorlock/` 모든 파일을 해당 경로에 복사합니다.
 3. Home Assistant를 **재시작**합니다.
 
-#### **2. YAML 설정 (Configuration)**
-`configuration.yaml` 파일에 아래 내용을 추가하고 사용자 정보를 입력합니다.
+#### **2. Home Assistant 설정**
+아래 2-1 UI 설정 혹은 2-2 YAML 파일 설정 중 하나를 수행한다.
 
+##### **2-1. 통합 구성요소 추가 (UI 설정)**
+1. Home Assistant 사이드바에서 **설정(Settings)** > **기기 및 서비스(Devices & Services)**로 이동합니다.
+2. 우측 하단의 **통합 구성요소 추가(Add Integration)** 버튼을 클릭합니다.
+3. **Zigbang Doorlock**을 검색하여 선택합니다.
+4. 직방 계정 정보(아이디, 비밀번호)와 IMEI(선택 사항)를 입력하고 확인을 누릅니다.
+
+##### **2-2. YAML 설정 (Configuration 수동 설정)**
+`configuration.yaml` 파일에 아래 내용을 추가하고 사용자 정보를 입력합니다.
 ```yaml
 # zigbang_doorlock 설정 예시
 zigbang_doorlock:
