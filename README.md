@@ -70,7 +70,7 @@ trigger:
     entity_id: lock.zigbang_doorlock
     attribute: event_id  # 새로운 출입 이벤트 발생 시 트리거
 action:
-  - vars:
+  - variables:
       msg_text: "{{ state_attr(trigger.entity_id, 'last_event_msg') }}"
       msg_code: "{{ state_attr(trigger.entity_id, 'last_event_code') }}"
       # 메시지에서 사용자 이름 추출 (예: '홍길동'님이 문을 열었습니다 -> 홍길동)
