@@ -33,7 +33,7 @@ custom_components/zigbang_doorlock/
 
 #### **1. 수동 설치**
 1. Home Assistant의 설정 디렉토리(`config/`) 내부의 `custom_components/` 폴더로 이동합니다. (폴더가 없으면 생성하세요.)
-2. `custom_components/zigbang_doorlock/` 폴더를 생성하고 Repo 내 `custom_components/zigbang_doorlock/` 모든 파일을 해당 경로에 복사합니다.
+2. `custom_components/zigbang_doorlock/` 폴더를 생성하고 Repo 내 `custom_components/zigbang-doorlock/` 모든 파일을 해당 경로에 복사합니다.
 3. Home Assistant를 **재시작**합니다.
 
 #### **2. YAML 설정 (Configuration)**
