@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "username": "이메일 주소(ID)",
+          "password": "비밀번호"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "ID 또는 비밀번호가 올바르지 않습니다.",
+      "cannot_connect": "직방 서버에 연결할 수 없습니다."
+    }
+  }
+}
