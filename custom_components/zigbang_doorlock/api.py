@@ -63,7 +63,7 @@ class ZigbangAPI:
 
                 # 401 Unauthorized 처리 (자동 재로그인)
                 if response.status == 401:
-                    _LOGGER.warning("[Zigbang] 401 감지. 토큰 갱신 시도...")
+                    _LOGGER.info("[Zigbang] 401 감지. 토큰 갱신 시도...")
                     if loginRetry == False:
                         _LOGGER.error("[Zigbang] 재로그인 후 처리하였으나 오류 검출(%s)", response_text)
                         raise Exception("auth failed")
