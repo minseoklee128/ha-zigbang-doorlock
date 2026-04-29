@@ -3,6 +3,7 @@ import json
 import datetime
 import hashlib
 import aiohttp
+import ssl
 from typing import Dict, Any, Optional
 
 _LOGGER = logging.getLogger(__name__)
@@ -17,6 +18,11 @@ class ZigbangAPI:
         self.auth_token = None
         self.member_id = None
         self.auth_code = None
+        
+        # SSL 인증서 유효성 및 호스트명 검증 무시 설정
+        self._ssl_context = ssl.create_default_context()
+        self._ssl_context.check_hostname = False
+        self._ssl_context.verify_mode = ssl.CERT_NONE
 
     def _get_timestamp(self) -> str:
         return datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -57,7 +63,7 @@ class ZigbangAPI:
         try:
             # 명시적으로 params와 json 인자에 매핑하여 호출
             # 로그인 미처리시 로그인 로직 추가
-            async with session.request(method, url, headers=headers, params=params, json=body) as response:
+            async with session.request(method, url, headers=headers, params=params, json=body, ssl=self._ssl_context) as response:
                 response_text = await response.text()
                 _LOGGER.debug("[Zigbang RESPONSE]\nStatus: %s\nBody: %s", response.status, response_text)
 
@@ -103,7 +109,7 @@ class ZigbangAPI:
         )
 
         # 로그인은 무한루프 방지를 위해 직접 호출
-        async with session.put(f"{self.base_url}{uri}", json=payload, headers=self._get_headers()) as response:
+        async with session.put(f"{self.base_url}{uri}", json=payload, headers=self._get_headers(), ssl=self._ssl_context) as response:
             res_text = await response.text()
             _LOGGER.debug("[Zigbang LOGIN RESPONSE] %s: %s", response.status, res_text)
             if response.status == 200:
