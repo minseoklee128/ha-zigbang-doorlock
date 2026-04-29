@@ -3,7 +3,7 @@ from homeassistant import config_entries
 from .api import ZigbangAPI
 from .const import DOMAIN
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from util import generate_random_imei
+from .util import generate_random_imei
 
 class ZigbangConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
