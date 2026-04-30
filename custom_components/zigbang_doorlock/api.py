@@ -141,6 +141,19 @@ class ZigbangAPI:
         data = await self.async_request("GET", uri, session, params=params)
         return data.get("doorlockVOList", []) if data else []
 
+    async def fetch_inouthistory(self, session: aiohttp.ClientSession, device_id: str):
+        """도어락 출입 이력 조회 (알림 이벤트용)"""
+        uri = "/v20/doorlockctrl/inouthistory"
+        params = {
+            "deviceId": device_id,
+            "memberId": self.member_id,
+            "locale": "ko-KR",
+            "createDate": self._get_timestamp()
+        }
+        params["hashData"] = self._generate_hash_data(params)
+        data = await self.async_request("GET", uri, session, params=params)
+        return data.get("historyVOList", []) if data else []
+
     async def control_unlock(self, session: aiohttp.ClientSession, device_id: str) -> bool:
         """도어락 열기 제어 (v20/doorlockctrl/open)"""
         if not self.member_id:
