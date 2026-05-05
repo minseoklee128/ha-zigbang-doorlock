@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "event": {
+      "doorlock_alert": {
+        "name": "도어락 알림"
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "배터리"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "entity": {
+    "event": {
+      "access_event": {
+        "name": "Doorlock Alarm"
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      }
+    }
+  }
+}

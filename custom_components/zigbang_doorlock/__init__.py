@@ -69,7 +69,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 # 새로운 이벤트를 HA 이벤트 버스에 발송 (오래된 것부터 발생시키기 위해 역순 처리)
                 for evt in reversed(new_events):
                     # 사용자가 요청한 msgText, msgCd, rgstDt와 기기를 식별할 수 있는 deviceId 포함
-                    event_data = {"msgText": evt.get("msgText"), "msgCd": evt.get("msgCd"), "rgstDt": evt.get("rgstDt"), "device_id": device_id}
+                    event_data = {"msgText": evt.get("msgText"), "msgCd": evt.get("msgCd"), "rgstDt": evt.get("rgstDt"), "device_id": device_id, "pinTypeCd": evt.get("pinTypeCd"), "pinNm": evt.get("pinNm")}
                     hass.bus.async_fire(f"{DOMAIN}_event", event_data)
 
                 # event.py 엔티티에서 처리할 수 있도록 코디네이터 데이터에 새 이벤트 추가

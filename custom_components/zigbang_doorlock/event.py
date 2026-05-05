@@ -1,116 +1,86 @@
 import logging
-from datetime import timedelta
-
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers.storage import Store
-from .api import ZigbangAPI
-from .const import DOMAIN
+from datetime import datetime
+from homeassistant.components.event import EventEntity
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
+from .const import DOMAIN, ALERT_TYPE, OPEN_TYPE
 
 _LOGGER = logging.getLogger(__name__)
 
-# 지원하는 플랫폼 플랫폼 정의
-PLATFORMS = ["lock", "sensor", "event"]
+async def async_setup_entry(hass, entry, async_add_entities):
+    """event 플랫폼 설정"""
+    data = hass.data[DOMAIN][entry.entry_id]
+    coordinator = data["coordinator"]
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """통합 구성 요소 설정 """
+    entities = [
+        ZigbangDoorlockEvent(coordinator, device_id)
+        for device_id in coordinator.data
+    ]
 
-    # 1. API 인스턴스 생성
-    api = ZigbangAPI(entry.data["username"], entry.data["password"], entry.data["imei"])
-    session = async_get_clientsession(hass)
+    if entities:
+        async_add_entities(entities)
 
-    # 재부팅 시에도 이벤트를 기억하기 위해 Home Assistant 스토리지 사용
-    store = Store(hass, 1, f"{DOMAIN}_events_{entry.entry_id}")
-    stored_data = await store.async_load() or {}
-    processed_events = set(stored_data.values())
 
-    # 2. 데이터 업데이트 코디네이터 정의
-    async def async_update_data():
-        """10초마다 실행될 상태 갱신 로직"""
-        try:
-            if not api.auth_token:
-                if not await api.login(session):
-                    raise UpdateFailed("로그인 인증 실패")
-            # api.py의 fetch_doorlock_list 호출
-            devices = await api.fetch_doorlock_list(session)
-            # deviceId를 키로 하는 딕셔너리로 저장 (엔티티에서 접근하기 위함)
-            device_dict = {device["deviceId"]: device for device in devices}
+class ZigbangDoorlockEvent(CoordinatorEntity, EventEntity):
+    """직방 도어락 이벤트 엔티티"""
 
-            # 새로운 알림 이벤트 처리 로직
-            for device_id in device_dict:
-                history_list = await api.fetch_inouthistory(session, device_id)
-                
-                # lock, sensor, event 등 다른 엔티티에서 최근 이력을 참조할 수 있도록 데이터 저장
-                if history_list:
-                    device_dict[device_id]["recentHistoryVOList"] = history_list[0]
-                else:
-                    device_dict[device_id]["recentHistoryVOList"] = {}
+    def __init__(self, coordinator, device_id):
+        super().__init__(coordinator)
+        self._device_id = device_id
+        self._attr_unique_id = f"{device_id}_event"
+        self._attr_has_entity_name = True
+        
+        # translations 디렉토리를 통한 다국어 처리 지원
+        self._attr_translation_key = "doorlock_alert"
+        self._attr_icon = "mdi:message-badge-outline"
+        self._attr_event_types = ["doorlock_activity"]
 
-                last_known_event_id = stored_data.get(device_id)
-                new_events = []
-                current_latest_id = None
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, device_id)},
+        }
 
-                # 리스트의 첫 번째에서 최대 세 번째까지 확인
-                for history in history_list[:3]:
-                    event_id = history.get("eventId")
-                    if current_latest_id is None:
-                        current_latest_id = event_id
+    def _handle_coordinator_update(self) -> None:
+        """코디네이터 데이터가 업데이트될 때 호출됨"""
+        device_data = self.coordinator.data.get(self._device_id, {})
+        new_events = device_data.get("new_events", [])
 
-                    if event_id == last_known_event_id or event_id in processed_events:
-                        break  # 이전에 처리했던 이벤트를 만나면 중단
+        # 시스템 언어 설정 가져오기 (예: 'ko', 'en-US' 등) -> 'ko'로 시작하면 한국어, 그 외는 영어로 폴백
+        system_lang = self.coordinator.hass.config.language
+        lang_key = "ko" if system_lang.startswith("ko") else "en"
+        
+        alert_dict = ALERT_TYPE.get(lang_key, ALERT_TYPE["en"])
+        open_dict = OPEN_TYPE.get(lang_key, OPEN_TYPE["en"])
 
-                    processed_events.add(event_id)
-                    # 최초 등록 시점(last_known_event_id가 없을 때)에는 알림을 보내지 않음
-                    if last_known_event_id is not None:
-                        new_events.append(history)
-                
-                # 새로운 이벤트를 HA 이벤트 버스에 발송 (오래된 것부터 발생시키기 위해 역순 처리)
-                for evt in reversed(new_events):
-                    # 사용자가 요청한 msgText, msgCd, rgstDt와 기기를 식별할 수 있는 deviceId 포함
-                    event_data = {"msgText": evt.get("msgText"), "msgCd": evt.get("msgCd"), "rgstDt": evt.get("rgstDt"), "device_id": device_id}
-                    hass.bus.async_fire(f"{DOMAIN}_event", event_data)
+        # __init__.py 에서 수집해준 새 이벤트가 있을 경우, 이를 Home Assistant 엔티티 이벤트로 발송
+        for evt in new_events:
+            raw_dt = evt.get("rgstDt")
+            formatted_dt = raw_dt
+            
+            if raw_dt:
+                try:
+                    # 1. 문자열을 naive datetime으로 파싱
+                    naive_dt = datetime.strptime(raw_dt, "%Y-%m-%d %H:%M:%S")
+                    _LOGGER.debug("naive_dt: %s", naive_dt)
+                    utc_dt = naive_dt.replace(tzinfo=dt_util.UTC)
+                    _LOGGER.debug("utc_dt: %s", utc_dt)
+                    # 2. HA 시스템 타임존 주입 (as_local은 타임존이 없을 경우 시스템 타임존으로 간주)
+                    local_dt = dt_util.as_local(utc_dt)
+                    _LOGGER.debug("local_dt: %s", local_dt)
+                    # 3. ISO 포맷 문자열로 변환 (HA UI에서 시간으로 인식하기 좋음)
+                    formatted_dt = local_dt.isoformat()
+                    _LOGGER.debug("formatted_dt: %s", formatted_dt)
+                except Exception as e:
+                    _LOGGER.error("시간 변환 오류: %s", e)
 
-                # event.py 엔티티에서 처리할 수 있도록 코디네이터 데이터에 새 이벤트 추가
-                device_dict[device_id]["new_events"] = new_events
+            self._trigger_event(
+                "doorlock_activity",
+                {
+                    "message": evt.get("msgText"),
+                    "alert_type": alert_dict.get(evt.get("msgCd"), evt.get("msgCd")),
+                    "open_type": open_dict.get(evt.get("pinTypeCd"), evt.get("pinTypeCd")),
+                    "user_name": evt.get("pinNm"),
+                    "alert_at": formatted_dt,
+                }
+            )
 
-                # 가장 최신 이벤트 ID를 스토리지에 저장하여 재부팅 후에도 유지
-                if current_latest_id and current_latest_id != last_known_event_id:
-                    stored_data[device_id] = current_latest_id
-                    await store.async_save(stored_data)
-
-            return device_dict
-        except Exception as err:
-            _LOGGER.error("데이터 업데이트 중 오류 발생: %s", err)
-            raise UpdateFailed(f"서버 통신 실패: {err}")
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="zigbang_doorlock_update",
-        update_method=async_update_data,
-        update_interval=timedelta(seconds=10),
-    )
-
-    # 3. 최초 데이터 불러오기
-    await coordinator.async_config_entry_first_refresh()
-
-    # 4. 엔티티에서 사용할 수 있도록 hass.data에 저장
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
-        "api": api,
-        "coordinator": coordinator
-    }
-
-    # 5. 플랫폼(lock.py, sensor.py) 로드
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    return True
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """통합 구성 요소 언로드"""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-    return unload_ok
+        super()._handle_coordinator_update()
